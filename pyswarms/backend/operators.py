@@ -17,7 +17,8 @@ import numpy as np
 from ..utils.reporter import Reporter
 from .handlers import BoundaryHandler, VelocityHandler
 from functools import partial
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Pipe, Pool
+
 import multiprocessing
 
 
@@ -212,7 +213,7 @@ def compute_position(swarm, bounds, bh):
         return position
 
 
-def compute_objective_function(swarm, objective_func, no_processes=5, **kwargs):
+def compute_objective_function(swarm, objective_func, no_processes=None, **kwargs):
     """Evaluate particles using the objective function
 
     This method evaluates each particle in the swarm according to the objective
@@ -243,8 +244,7 @@ def compute_objective_function(swarm, objective_func, no_processes=5, **kwargs):
 
     else:
 
-
-        positions = [swarm.position[i:i+no_processes] for i in range(0,len(swarm.position),no_processes)]
+        positions = [swarm.position[i : i + no_processes] for i in range(0, len(swarm.position), no_processes)]
 
         jobs = []
         pipe_list = []
@@ -254,20 +254,13 @@ def compute_objective_function(swarm, objective_func, no_processes=5, **kwargs):
             jobs.append(p)
             pipe_list.append(recv_end)
             p.start()
-
         for proc in jobs:
             proc.join()
         result_list = [x.recv() for x in pipe_list]
 
-    return np.concatenate(result_list)
+        return np.concatenate(result_list)
 
 def sender(func, send_end, *args, **kwargs):
+    """ The function you want to run in parallel"""
     result = func(args[0], **kwargs)
     send_end.send(result)
-
-def task(pipe, xfunc, xargs, xkwargs):
-    res = []
-    for i in xargs:
-        rtn = xfunc(i, **xkwargs)
-        res.append(rtn)
-    pipe.send([res])
